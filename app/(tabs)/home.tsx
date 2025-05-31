@@ -2,8 +2,9 @@ import { Entypo, FontAwesome5, Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useRef, useState } from 'react';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Toast from 'react-native-toast-message';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import CustomModal from '../../components/CustomModal'; // Adjust the import path as necessary
 import { useDeliveryStore } from '../../store/useDeliveryStore';
 import { useLocationStore } from '../../store/useLocationStore';
@@ -26,6 +27,7 @@ export default function HomeScreen() {
 
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
+
   const pickup = useLocationStore(state => state.pickup);
   const dropoff = useLocationStore(state => state.dropoff);
   const routePoints = React.useMemo(() => ({ pickup, dropoff }), [pickup, dropoff]);
@@ -209,11 +211,15 @@ export default function HomeScreen() {
 
   const [loading, setLoading] = useState(false);
 
+
+
+
   const handleOrderConfirm = async () => {
+    setLoading(true); // show loading indicator
+
     try {
       const { deliveryData } = useDeliveryStore.getState();
 
-      // Sanitize the deliveryData to match backend expectations
       const payload = {
         sender_id: deliveryData.sender_id,
         pickup_address: deliveryData.pickup_address,
@@ -236,14 +242,13 @@ export default function HomeScreen() {
         distance_km: deliveryData.distance_km,
         duration_minutes: deliveryData.duration_minutes,
       };
-
-
       console.log('Payload to send:', payload);
 
       const response = await axios.post(`${API_URL}/api/client/deliveries`, payload);
       console.log('Delivery created:', response.data);
 
       useDeliveryStore.getState().resetDeliveryData();
+      useLocationStore.getState().clearLocations();
 
       Toast.show({
         type: 'success',
@@ -252,8 +257,6 @@ export default function HomeScreen() {
       });
 
       setModalVisible(false);
-
-      // Navigate or show success
     } catch (error) {
       console.error('Delivery creation failed:', error);
       Toast.show({
@@ -263,8 +266,9 @@ export default function HomeScreen() {
       });
     } finally {
       setLoading(false); // hide loading indicator
+      setModalVisible(false);
     }
-  };
+  }
 
 
   const handlePlaceOrder = () => {
@@ -290,137 +294,152 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.logo}>
-          <Text style={styles.logoOrange}>PARFLY</Text>
-        </Text>
-      </View>
 
-      {/* Pick-up Location */}
-      <TouchableOpacity
-        style={styles.optionBox}
-        onPress={() =>
-          router.push({
-            pathname: '/pickup-location',
-            params: { mode: 'pickup' },
-          })
-        }
-      >
-        <View style={styles.optionLeft}>
-          <Ionicons name="radio-button-on" size={24} color="#FF0000" />
-          <View style={styles.addressContainer}>
-            {hasPickupAddress ? (
-              <>
-                <Text style={styles.pickupLabel}>Pick-up Location</Text>
-                <Text style={styles.pickupAddress} numberOfLines={2} ellipsizeMode="tail">
-                  {pickup.address}
-                </Text>
-              </>
-            ) : (
-              <Text style={styles.optionText}>Pick-up Location</Text>
-            )}
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF6600" />
+          <Text style={styles.loadingText}>Creating your order request...</Text>
+        </View>
+      ) : (
+        <>
+
+          {/* Header */}
+
+          <View style={styles.header}>
+            <Text style={styles.logo}>
+              <Text style={styles.logoOrange}>PARFLY</Text>
+            </Text>
           </View>
-        </View>
-        <Entypo name="chevron-right" size={20} color="gray" />
-      </TouchableOpacity>
 
-      {/* Drop-off Location */}
-      <TouchableOpacity
-        style={styles.optionBox}
-        onPress={() =>
-          router.push({
-            pathname: '/pickup-location',
-            params: { mode: 'dropoff' },
-          })
-        }
+          {/* Pick-up Location */}
+          <TouchableOpacity
+            style={styles.optionBox}
+            onPress={() =>
+              router.push({
+                pathname: '/pickup-location',
+                params: { mode: 'pickup' },
+              })
+            }
+          >
+            <View style={styles.optionLeft}>
+              <Icon name="circle-outline" size={24} color="#FF6600" />
 
-
-      >
-        <View style={styles.optionLeft}>
-          <Ionicons name="flag" size={24} color="#4B7A8F" />
-          <View style={styles.addressContainer}>
-            {hasDropoffAddress ? (
-              <>
-                <Text style={styles.pickupLabel}>Destination</Text>
-                <Text style={styles.pickupAddress} numberOfLines={2} ellipsizeMode="tail">
-                  {dropoff.address}
-                </Text>
-              </>
-            ) : (
-              <Text style={styles.optionText}>Destination</Text>
-            )}
-          </View>
-        </View>
-        <Entypo name="chevron-right" size={20} color="gray" />
-      </TouchableOpacity>
-
-
-
-
-      {/* Service Type Selector */}
-      <View style={styles.serviceSelector}>
-        <View style={styles.serviceHeader}>
-          <TouchableOpacity style={styles.serviceDetail} onPress={() => router.push('/order-details')}>
-            <Ionicons name="options-outline" size={16} color="#333" />
-            <Text style={styles.serviceText}>Details</Text>
+              <View style={styles.addressContainer}>
+                {hasPickupAddress ? (
+                  <>
+                    <Text style={styles.pickupLabel}>Pick-up Location</Text>
+                    <Text style={styles.pickupAddress} numberOfLines={2} ellipsizeMode="tail">
+                      {pickup.address}
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={styles.optionText}>Pick-up Location</Text>
+                )}
+              </View>
+            </View>
+            <Entypo name="chevron-right" size={20} color="gray" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.serviceDetail}>
-            <Ionicons name="cash-outline" size={16} color="#333" />
-            <Text style={styles.serviceText}>In cash</Text>
+
+          {/* Drop-off Location */}
+          <TouchableOpacity
+            style={styles.optionBox}
+            onPress={() =>
+              router.push({
+                pathname: '/pickup-location',
+                params: { mode: 'dropoff' },
+              })
+            }
+
+
+          >
+            <View style={styles.optionLeft}>
+              <Icon name="map-marker" size={24} color="#FF6600" />
+              <View style={styles.addressContainer}>
+                {hasDropoffAddress ? (
+                  <>
+                    <Text style={styles.pickupLabel}>Destination</Text>
+                    <Text style={styles.pickupAddress} numberOfLines={2} ellipsizeMode="tail">
+                      {dropoff.address}
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={styles.optionText}>Destination</Text>
+                )}
+              </View>
+            </View>
+            <Entypo name="chevron-right" size={20} color="gray" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.serviceDetail}>
-            <Ionicons name="time-outline" size={16} color="#333" />
-            <Text style={styles.serviceText}>Now</Text>
-          </TouchableOpacity>
-        </View>
 
-        {/* Services */}
-        <View style={styles.serviceTypes}>
-          {services.map(service => {
-            const isSelected = selectedService === service.key;
 
-            const handlePress = () => {
-              if (service.key === 'cars' || service.key === 'trucks') {
-                alert('Not available for now');
-                return;
-              }
-              setSelectedService(service.key);
-            };
 
-            return (
-              <TouchableOpacity
-                key={service.key}
-                style={[styles.serviceTypeBox, isSelected && styles.serviceTypeSelected]}
-                onPress={handlePress}
-              >
-                {React.cloneElement(service.icon, { color: isSelected ? 'black' : '#000' })}
-                <Text style={[styles.serviceLabel, { color: isSelected ? 'black' : '#333' }]}>{service.label}</Text>
-                <Text style={[styles.servicePrice, { color: isSelected ? 'black' : '#777' }]}>{service.price}</Text>
+
+          {/* Service Type Selector */}
+          <View style={styles.serviceSelector}>
+            <View style={styles.serviceHeader}>
+              <TouchableOpacity style={styles.serviceDetail} onPress={() => router.push('/order-details')}>
+                <Ionicons name="options-outline" size={16} color="#333" />
+                <Text style={styles.serviceText}>Details</Text>
               </TouchableOpacity>
-            );
-          })}
+              <TouchableOpacity style={styles.serviceDetail}>
+                <Ionicons name="cash-outline" size={16} color="#333" />
+                <Text style={styles.serviceText}>In cash</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.serviceDetail}>
+                <Ionicons name="time-outline" size={16} color="#333" />
+                <Text style={styles.serviceText}>Now</Text>
+              </TouchableOpacity>
+            </View>
 
-        </View>
+            {/* Services */}
+            <View style={styles.serviceTypes}>
+              {services.map(service => {
+                const isSelected = selectedService === service.key;
+
+                const handlePress = () => {
+                  if (service.key === 'cars' || service.key === 'trucks') {
+                    alert('Not available for now');
+                    return;
+                  }
+                  setSelectedService(service.key);
+                };
+
+                return (
+                  <TouchableOpacity
+                    key={service.key}
+                    style={[styles.serviceTypeBox, isSelected && styles.serviceTypeSelected]}
+                    onPress={handlePress}
+                  >
+                    {React.cloneElement(service.icon, { color: isSelected ? 'black' : '#000' })}
+                    <Text style={[styles.serviceLabel, { color: isSelected ? 'black' : '#333' }]}>{service.label}</Text>
+                    <Text style={[styles.servicePrice, { color: isSelected ? 'black' : '#777' }]}>{service.price}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+
+            </View>
 
 
-        {/* Order Button */}
-        <TouchableOpacity
-          style={styles.orderButton}
-          disabled={!hasPickupAddress || !hasDropoffAddress}
-          onPress={handlePlaceOrder}
-        >
-          <Text style={styles.orderPrice}>{hasPickupAddress && hasDropoffAddress ? formattedPrice : `${selectedServiceDetails?.price}`}</Text>
-          <Text style={styles.orderText} >ORDER</Text>
-        </TouchableOpacity>
+            {/* Order Button */}
+            <TouchableOpacity
+              style={styles.orderButton}
+              disabled={!hasPickupAddress || !hasDropoffAddress}
+              onPress={handlePlaceOrder}
+            >
+              <Text style={styles.orderPrice}>{hasPickupAddress && hasDropoffAddress ? formattedPrice : `${selectedServiceDetails?.price}`}</Text>
+              <Text style={styles.orderText} >ORDER</Text>
+            </TouchableOpacity>
 
-      </View>
-      <CustomModal
-        visible={modalVisible}
-        message="Are you sure you want to place order?"
-        onCancel={() => setModalVisible(false)}
-        onConfirm={handleOrderConfirm}
-      />
+          </View>
+          <CustomModal
+            visible={modalVisible}
+            message="Are you sure you want to place order?"
+            onCancel={() => setModalVisible(false)}
+            onConfirm={handleOrderConfirm}
+          />
+
+
+        </>
+      )}
       <Toast />
     </View>
   );
@@ -563,6 +582,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: 'white',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 100,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#555',
   },
 
 

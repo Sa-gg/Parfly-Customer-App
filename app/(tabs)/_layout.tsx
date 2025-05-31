@@ -5,9 +5,13 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={({ route }) => ({
-         headerShown: false, 
+        headerShown: false,
         tabBarActiveTintColor: '#FF6600',
         tabBarInactiveTintColor: 'gray',
+        tabBarStyle: {
+          paddingTop: 5, // <-- Add your padding here
+          height: 110, // Adjust height as needed
+        },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: keyof typeof Ionicons.glyphMap = 'ellipse';
 

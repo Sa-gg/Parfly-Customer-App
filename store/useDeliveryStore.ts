@@ -85,5 +85,12 @@ export const useDeliveryStore = create<DeliveryStore>((set) => ({
       },
     })),
 
-  resetDeliveryData: () => set({ deliveryData: { ...defaultData } }),
+  resetDeliveryData: () =>
+    set((state) => ({
+      deliveryData: {
+        ...defaultData,
+        sender_id: state.deliveryData.sender_id, // preserve sender_id
+      },
+    })),
+
 }));

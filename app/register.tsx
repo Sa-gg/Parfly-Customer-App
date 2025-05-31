@@ -25,6 +25,8 @@ export default function RegisterScreen() {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [agree, setAgree] = useState(false);
+    const [fullName, setFullName] = useState('');
+
 
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -35,23 +37,32 @@ export default function RegisterScreen() {
 
 
     const [errors, setErrors] = useState({
+        fullName: '',
         phone: '',
         email: '',
         password: '',
         confirmPassword: '',
         agree: '',  // add this here too
+
     });
 
 
     const validateForm = () => {
         let valid = true;
         const newErrors = {
+            fullName: '',
             phone: '',
             email: '',
             password: '',
             confirmPassword: '',
-            agree: '',  // add this field
+            agree: '',
         };
+
+        if (!fullName.trim()) {
+            newErrors.fullName = 'Full name is required.';
+            valid = false;
+        }
+
 
         // Phone: Starts with 09 (11 digits) or 9 (10 digits)
         if (!/^0?9\d{9}$/.test(phoneNumber)) {
@@ -122,6 +133,7 @@ export default function RegisterScreen() {
         setLoading(true);
         try {
             await axios.post(`${API_URL}/api/register`, {
+                full_name: fullName,
                 email,
                 password,
                 phone: formattedPhone,
@@ -190,6 +202,16 @@ export default function RegisterScreen() {
                         onChangeText={setEmail}
                     />
                     {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+
+                    {/* Full Name */}
+                    <TextInput
+                        placeholder="Full Name"
+                        style={styles.input}
+                        value={fullName}
+                        onChangeText={setFullName}
+                    />
+                    {errors.fullName ? <Text style={styles.errorText}>{errors.fullName}</Text> : null}
+
 
                     {/* Password */}
                     <View style={styles.passwordContainer}>
