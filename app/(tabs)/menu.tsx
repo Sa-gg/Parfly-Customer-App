@@ -69,6 +69,7 @@ export default function MenuScreen() {
         <TouchableOpacity style={styles.menuItem}>
           <Ionicons name="information-circle-outline" size={22} color="#FF6600" style={styles.menuIcon} />
           <Text style={styles.menuText}>About</Text>
+          
         </TouchableOpacity>
       </View>
     </View>

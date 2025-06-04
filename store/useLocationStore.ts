@@ -1,10 +1,10 @@
-// store/useLocationStore.ts
 import { create } from 'zustand';
 
 interface Location {
   address: string;
   lat: number;
   lon: number;
+  city?: string; // ✅ new field
 }
 
 interface LocationState {
@@ -19,20 +19,18 @@ export const useLocationStore = create<LocationState>((set) => ({
   pickup: null,
   dropoff: null,
 
-  // Update only changed fields for pickup
   setPickup: (data) =>
     set((state) => ({
       pickup: state.pickup
         ? { ...state.pickup, ...data }
-        : { address: '', lat: 0, lon: 0, ...data },
+        : { address: '', lat: 0, lon: 0, city: '', ...data },
     })),
 
-  // Update only changed fields for dropoff
   setDropoff: (data) =>
     set((state) => ({
       dropoff: state.dropoff
         ? { ...state.dropoff, ...data }
-        : { address: '', lat: 0, lon: 0, ...data },
+        : { address: '', lat: 0, lon: 0, city: '', ...data },
     })),
 
   clearLocations: () => set({ pickup: null, dropoff: null }),

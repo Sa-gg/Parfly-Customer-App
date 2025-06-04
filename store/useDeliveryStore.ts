@@ -12,6 +12,9 @@ interface DeliveryData {
   dropoff_lat: number | null;
   dropoff_long: number | null;
 
+  pickup_city?: string;       // ✅ NEW
+  dropoff_city?: string;      // ✅ NEW
+
   parcel_amount: number;
   payer: 'sender' | 'receiver' | null;
   add_info: string;
@@ -27,8 +30,8 @@ interface DeliveryData {
   additional_compensation: number;
   tip: number;
 
-  distance_km: number;         // <-- added
-  duration_minutes: number;    // <-- added
+  distance_km: number;
+  duration_minutes: number;
 
   accepted_at?: string | null;
   received_at?: string | null;
@@ -52,6 +55,9 @@ const defaultData: DeliveryData = {
   dropoff_lat: null,
   dropoff_long: null,
 
+  pickup_city: '',            // ✅ NEW default
+  dropoff_city: '',           // ✅ NEW default
+
   parcel_amount: 0,
   payer: null,
   add_info: '',
@@ -67,8 +73,8 @@ const defaultData: DeliveryData = {
   additional_compensation: 0,
   tip: 0,
 
-  distance_km: 0,            // <-- added default
-  duration_minutes: 0,       // <-- added default
+  distance_km: 0,
+  duration_minutes: 0,
 
   accepted_at: null,
   received_at: null,
@@ -89,8 +95,7 @@ export const useDeliveryStore = create<DeliveryStore>((set) => ({
     set((state) => ({
       deliveryData: {
         ...defaultData,
-        sender_id: state.deliveryData.sender_id, // preserve sender_id
+        sender_id: state.deliveryData.sender_id,
       },
     })),
-
 }));

@@ -1,10 +1,15 @@
-import { Entypo, FontAwesome5, Ionicons } from '@expo/vector-icons';
+// import logo from '@/assets/images/logo'; // Removed unused logo import to fix module error
+import { Entypo, Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import car from '../../assets/images/car.png'; // Adjust the import path as necessary
+import logo from '../../assets/images/logo.png';
+import motorcycle from '../../assets/images/motorcycle.png'; // Adjust the import path as necessary
+import truck from '../../assets/images/truck.png'; // Adjust the import path as necessary
 import CustomModal from '../../components/CustomModal'; // Adjust the import path as necessary
 import { useDeliveryStore } from '../../store/useDeliveryStore';
 import { useLocationStore } from '../../store/useLocationStore';
@@ -55,9 +60,24 @@ export default function HomeScreen() {
 
   const [selectedService, setSelectedService] = React.useState('motorcycles');
   const services = [
-    { key: 'motorcycles', label: 'Motorcycles', price: 'from ₱10', basePrice: 10, icon: <Ionicons name="bicycle-outline" size={24} /> },
-    { key: 'cars', label: 'Passenger cars', price: 'from ₱40', basePrice: 10, icon: <Ionicons name="car-outline" size={24} /> },
-    { key: 'trucks', label: 'Trucks', price: 'from ₱10', basePrice: 10, icon: <FontAwesome5 name="truck" size={22} /> },
+    {
+      key: 'motorcycles', label: 'Motorcycles', price: 'from ₱10', basePrice: 10, icon: <Image
+        source={motorcycle}
+        style={styles.iconImage}
+      />
+    },
+    {
+      key: 'cars', label: 'Passenger cars', price: 'from ₱40', basePrice: 10, icon: <Image
+        source={car}
+        style={styles.iconImage}
+      />
+    },
+    {
+      key: 'trucks', label: 'Trucks', price: 'from ₱10', basePrice: 10, icon: <Image
+        source={truck}
+        style={styles.iconImage}
+      />
+    },
   ];
 
   const [routeInfo, setRouteInfo] = React.useState<{ km: number; mins: number, trafficmins: number } | null>(null);
@@ -79,7 +99,7 @@ export default function HomeScreen() {
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}, message: ${text}`);
 
       const data = JSON.parse(text);
-      console.log("Fetch complete")
+      // console.log("Fetch complete")
       return {
         km: data.distanceInKm,
         mins: data.durationInMinutes,
@@ -101,6 +121,7 @@ export default function HomeScreen() {
 
   const fetchedOnceRef = useRef(false);
 
+
   React.useEffect(() => {
     if (fetchedOnceRef.current) return;
 
@@ -112,15 +133,18 @@ export default function HomeScreen() {
     ) return;
 
     const handler = setTimeout(() => {
+      setLoadingPrice(true);  // <-- set loading true before fetching
       fetchRouteDistance(pickupLat, pickupLon, dropoffLat, dropoffLon)
         .then((result) => {
           setRouteInfo(result);
           fetchedOnceRef.current = true;
-        });
+        })
+        .finally(() => setLoadingPrice(false));  // <-- set loading false after fetching
     }, 500);
 
     return () => clearTimeout(handler);
   }, [pickupLat, pickupLon, dropoffLat, dropoffLon]);
+
 
 
 
@@ -182,6 +206,10 @@ export default function HomeScreen() {
 
       setDeliveryField('pickup_address', pickup?.address || '');
       setDeliveryField('dropoff_address', dropoff?.address || '');
+
+      // ✅ NEW: set pickup_city and dropoff_city
+      setDeliveryField('pickup_city', pickup?.city || '');
+      setDeliveryField('dropoff_city', dropoff?.city || '');
     }
 
     setDeliveryField('delivery_fee', totalPrice);
@@ -196,6 +224,8 @@ export default function HomeScreen() {
     dropoffLon,
     pickup?.address,
     dropoff?.address,
+    pickup?.city,       // ✅ add to deps
+    dropoff?.city,      // ✅ add to deps
     totalPrice,
     commissionAmount,
     driverEarnings,
@@ -203,6 +233,8 @@ export default function HomeScreen() {
     durationMins,
     setDeliveryField,
   ]);
+
+
 
 
   // For UI display
@@ -241,11 +273,16 @@ export default function HomeScreen() {
         tip: deliveryData.tip,
         distance_km: deliveryData.distance_km,
         duration_minutes: deliveryData.duration_minutes,
+
+        // ✅ Newly added
+        pickup_city: deliveryData.pickup_city || '',
+        dropoff_city: deliveryData.dropoff_city || '',
       };
-      console.log('Payload to send:', payload);
+
+      // console.log('Payload to send:', payload);
 
       const response = await axios.post(`${API_URL}/api/client/deliveries`, payload);
-      console.log('Delivery created:', response.data);
+      // console.log('Delivery created:', response.data);
 
       useDeliveryStore.getState().resetDeliveryData();
       useLocationStore.getState().clearLocations();
@@ -285,6 +322,51 @@ export default function HomeScreen() {
     setModalVisible(true);
   };
 
+  const [loadingPrice, setLoadingPrice] = useState(false);
+  const [filledFieldCount, setFilledFieldCount] = useState(0);
+
+  React.useEffect(() => {
+    if (!deliveryData) return;
+
+    const {
+      add_info,
+      receiver_name,
+      receiver_contact,
+      additional_compensation,
+      tip,
+      parcel_amount
+    } = deliveryData;
+
+    const fieldsToCheck = [
+      add_info,
+      receiver_name,
+      receiver_contact,
+      additional_compensation,
+      tip,
+      parcel_amount
+    ];
+
+    const count = fieldsToCheck.reduce((acc: number, field) => {
+      if (typeof field === 'string') {
+        return acc + (field.trim() !== '' ? 1 : 0);
+      } else if (typeof field === 'number') {
+        return acc + (field > 0 ? 1 : 0);
+      }
+      return acc;
+    }, 0);
+
+    setFilledFieldCount(count);
+  }, [deliveryData]);
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -306,9 +388,14 @@ export default function HomeScreen() {
           {/* Header */}
 
           <View style={styles.header}>
-            <Text style={styles.logo}>
+            <View style={styles.logo}>
+              <Image
+                source={logo}
+                style={styles.logoImage}
+              />
+
               <Text style={styles.logoOrange}>PARFLY</Text>
-            </Text>
+            </View>
           </View>
 
           {/* Pick-up Location */}
@@ -379,15 +466,20 @@ export default function HomeScreen() {
               <TouchableOpacity style={styles.serviceDetail} onPress={() => router.push('/order-details')}>
                 <Ionicons name="options-outline" size={16} color="#333" />
                 <Text style={styles.serviceText}>Details</Text>
+                <Text style={filledFieldCount > 0 ? styles.detailsCount : undefined}>{filledFieldCount > 0 ? filledFieldCount : ""}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.serviceDetail}>
-                <Ionicons name="cash-outline" size={16} color="#333" />
-                <Text style={styles.serviceText}>In cash</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.serviceDetail}>
-                <Ionicons name="time-outline" size={16} color="#333" />
-                <Text style={styles.serviceText}>Now</Text>
-              </TouchableOpacity>
+              <View style={styles.serviceHeaderContainer}>
+                <TouchableOpacity style={styles.serviceDetail}>
+                  <Ionicons name="cash-outline" size={16} color="#333" />
+                  <Text style={styles.serviceText}>In cash</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.serviceDetail}>
+                  <Ionicons name="time-outline" size={16} color="#333" />
+                  <Text style={styles.serviceText}>Now</Text>
+                </TouchableOpacity>
+
+              </View>
+
             </View>
 
             {/* Services */}
@@ -422,10 +514,14 @@ export default function HomeScreen() {
             {/* Order Button */}
             <TouchableOpacity
               style={styles.orderButton}
-              disabled={!hasPickupAddress || !hasDropoffAddress}
+              disabled={!hasPickupAddress || !hasDropoffAddress || loadingPrice || loading}
               onPress={handlePlaceOrder}
             >
-              <Text style={styles.orderPrice}>{hasPickupAddress && hasDropoffAddress ? formattedPrice : `${selectedServiceDetails?.price}`}</Text>
+              {loadingPrice ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (<Text style={styles.orderPrice}>{hasPickupAddress && hasDropoffAddress ? formattedPrice : `${selectedServiceDetails?.price}`}</Text>)}
+              <View style={styles.separatorLine} />
+
               <Text style={styles.orderText} >ORDER</Text>
             </TouchableOpacity>
 
@@ -465,8 +561,25 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#000',
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
+  logoImage: {
+    width: 40,
+    height: 40,
+    marginRight: 8,
+    borderRadius: 15,
+
+  },
+  iconImage: {
+    width: 70,
+    height: 40,
+  },
+
   logoOrange: {
+    fontSize: 20,
+    fontWeight: 'bold',
     color: '#FF6600',
   },
   optionBox: {
@@ -516,17 +629,38 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
   },
   serviceHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     marginBottom: 16,
   },
+  serviceHeaderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    gap: 5,
+
+
+  }
+  ,
+
+  detailsCount: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    fontSize: 12,
+    fontWeight: 'bold',
+    position: 'absolute',
+    right: 20,
+    backgroundColor: '#FF6600',
+    color: 'white',
+
+  },
   serviceDetail: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     backgroundColor: '#F2F2F2',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 20,
+    paddingVertical: 13,
     borderRadius: 20,
   },
   serviceText: {
@@ -568,18 +702,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FF6600',
-    paddingVertical: 14,
+    paddingVertical: 15,
     borderRadius: 30,
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    justifyContent: 'space-around',
+    paddingHorizontal: 0,
   },
   orderPrice: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '600',
     color: 'white',
   },
   orderText: {
-    fontSize: 16,
+    fontSize: 19,
     fontWeight: 'bold',
     color: 'white',
   },
@@ -594,6 +728,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#555',
   },
+  separatorLine: {
+    width: 1.5,
+    backgroundColor: '#F2F2F2',
+    marginHorizontal: 12,
+    alignSelf: 'stretch',
+    borderRadius: 1,
+  },
+
+
 
 
 

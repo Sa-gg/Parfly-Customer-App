@@ -26,8 +26,8 @@ const { width, height } = Dimensions.get('window');
 const DEFAULT_REGION = {
   latitude: 10.6765,       // Near Bacolod City
   longitude: 122.9511,
-  latitudeDelta: 0.3,      // Zoom level: adjust as needed
-  longitudeDelta: 0.3,
+  latitudeDelta: 0.001,      // Zoom level: adjust as needed
+  longitudeDelta: 0.001,
 };
 
 
@@ -47,6 +47,7 @@ export default function PickupLocationScreen() {
 
   const [search, setSearch] = useState('');
   const [address, setAddress] = useState('Fetching address...');
+  const [city, setCity] = useState(''); 
   const [loading, setLoading] = useState(true);
   const [showUI, setShowUI] = useState(false);
   const [fetchingAddress, setFetchingAddress] = useState(false);
@@ -165,6 +166,7 @@ export default function PickupLocationScreen() {
       }
 
       setAddress(newAddress);
+      setCity(data.address?.municipality);
 
       skipSearchRef.current = true;
       // console.log('Fetched address:', newAddress);
@@ -520,12 +522,14 @@ export default function PickupLocationScreen() {
                     address,
                     lat: currentCoords.latitude,
                     lon: currentCoords.longitude,
+                    city: city, // Pass city if available
                   });
                 } else {
                   setDropoff({
                     address,
                     lat: currentCoords.latitude,
                     lon: currentCoords.longitude,
+                    city: city, // Pass city if available
                   });
                 }
 

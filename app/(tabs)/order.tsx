@@ -5,15 +5,17 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { Menu, Provider } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import logo from '../../assets/images/logo.png';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -70,6 +72,8 @@ export default function CompletedOrdersScreen() {
 
   useEffect(() => {
     fetchCompletedOrders();
+    
+    
   }, []);
 
   const onRefresh = () => {
@@ -178,6 +182,10 @@ export default function CompletedOrdersScreen() {
     <Provider>
       <View style={styles.container}>
         <View style={styles.titleWrapper}>
+          <Image
+                          source={logo}
+                          style={styles.logoImage}
+                        />
           <Text style={styles.title}>PARFLY</Text>
         </View>
 
@@ -287,6 +295,11 @@ const styles = StyleSheet.create({
     borderColor: '#E0E0E0',
     borderBottomWidth: 2,
     borderBottomColor: '#CCCCCC',
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'center',
+    
+    
   },
   title: {
     fontSize: 20,
@@ -363,5 +376,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#666',
+  },
+  logoImage: {
+    width: 40,
+    height: 40,
+    marginRight: 8,
+    borderRadius: 15,
+
   },
 });

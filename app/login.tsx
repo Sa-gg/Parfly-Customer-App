@@ -80,7 +80,7 @@ export default function LoginScreen() {
         setLoading(true);
         setErrors({ identifier: '', password: '', general: '' }); // Clear previous errors
         try {
-            const response = await axios.post(`${API_URL}/api/login`, {
+            const response = await axios.post(`${API_URL}/api/login/customer`, {
                 identifier,
                 password,
             });

@@ -132,7 +132,7 @@ export default function RegisterScreen() {
 
         setLoading(true);
         try {
-            await axios.post(`${API_URL}/api/register`, {
+            await axios.post(`${API_URL}/api/register/customer`, {
                 full_name: fullName,
                 email,
                 password,
@@ -184,7 +184,7 @@ export default function RegisterScreen() {
                             placeholder="Phone Number"
                             style={styles.phoneInput}
                             keyboardType="phone-pad"
-                            maxLength={10}
+                            maxLength={11}
                             value={phoneNumber}
                             onChangeText={setPhoneNumber}
                         />
