@@ -14,6 +14,7 @@ import CustomModal from '../../components/CustomModal'; // Adjust the import pat
 import { useDeliveryStore } from '../../store/useDeliveryStore';
 import { useLocationStore } from '../../store/useLocationStore';
 import { initDeliverySenderFromSecureStore } from '../../utils/initDeliverySender';
+import SharedHeader from '../../components/SharedHeader'; // Adjust the import path as necessary
 
 export default function HomeScreen() {
   const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
@@ -24,11 +25,6 @@ export default function HomeScreen() {
 
   const deliveryData = useDeliveryStore(state => state.deliveryData);
   const setDeliveryField = useDeliveryStore(state => state.setDeliveryField);
-
-  // React.useEffect(() => {
-  //   console.log('Current Delivery Data:', deliveryData);
-  // }, [deliveryData]);
-
 
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
@@ -99,14 +95,14 @@ export default function HomeScreen() {
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}, message: ${text}`);
 
       const data = JSON.parse(text);
-      // console.log("Fetch complete")
+     
       return {
         km: data.distanceInKm,
         mins: data.durationInMinutes,
         trafficmins: data.trafficDelayInMinutes,
       };
     } catch (err) {
-      // console.error('Route distance error:', err);
+     
       return null;
     }
   };
@@ -234,17 +230,10 @@ export default function HomeScreen() {
     setDeliveryField,
   ]);
 
-
-
-
   // For UI display
   const formattedPrice = `₱${totalPrice.toFixed(2)}`;
 
-
   const [loading, setLoading] = useState(false);
-
-
-
 
   const handleOrderConfirm = async () => {
     setLoading(true); // show loading indicator
@@ -307,7 +296,6 @@ export default function HomeScreen() {
     }
   }
 
-
   const handlePlaceOrder = () => {
     if (!isValidRoute) {
       alert('Please select valid pick-up and drop-off locations.');
@@ -359,21 +347,6 @@ export default function HomeScreen() {
   }, [deliveryData]);
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   return (
     <View style={styles.container}>
 
@@ -387,16 +360,8 @@ export default function HomeScreen() {
 
           {/* Header */}
 
-          <View style={styles.header}>
-            <View style={styles.logo}>
-              <Image
-                source={logo}
-                style={styles.logoImage}
-              />
+          <SharedHeader />
 
-              <Text style={styles.logoOrange}>PARFLY</Text>
-            </View>
-          </View>
 
           {/* Pick-up Location */}
           <TouchableOpacity
@@ -553,9 +518,6 @@ const styles = StyleSheet.create({
     position: 'relative',
     height: '100%',
     width: '100%',
-  },
-  header: {
-    marginBottom: 24,
   },
   logo: {
     fontSize: 20,

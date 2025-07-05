@@ -506,7 +506,7 @@ export default function PickupLocationScreen() {
         {showUI && !fetchingAddress && (
           <View style={styles.bottomContainer}>
             <View style={styles.pickupInfo}>
-              <Text style={styles.pickupLabel}>Pick-up point</Text>
+              <Text style={styles.pickupLabel}>{mode == 'pickup' ?  'Pick-up point' : 'Drop-off point'}</Text>
               <Text style={styles.pickupAddress}>
                 {fetchingAddress ? 'Fetching address...' : address}
               </Text>

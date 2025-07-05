@@ -1,7 +1,35 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import { Animated, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+function AnimatedTabIcon({ focused, activeIcon, inactiveIcon, color, size }: any) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.spring(scaleAnim, {
+      toValue: focused ? 1.2 : 1,
+      useNativeDriver: true,
+      friction: 4,
+      tension: 100,
+    }).start();
+  }, [focused]);
+
+  return (
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      {focused ? (
+        <MaterialCommunityIcons name={activeIcon} size={size} color={color} />
+      ) : (
+        <Feather name={inactiveIcon} size={size} color={color} />
+      )}
+    </Animated.View>
+  );
+}
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={({ route }) => ({
@@ -9,23 +37,40 @@ export default function TabsLayout() {
         tabBarActiveTintColor: '#FF6600',
         tabBarInactiveTintColor: 'gray',
         tabBarStyle: {
-          paddingTop: 5, // <-- Add your padding here
-          height: 110, // Adjust height as needed
+          paddingTop: 5,
+          paddingBottom: insets.bottom + 10,
+          height: 60 + insets.bottom,
+          backgroundColor: '#fff',
         },
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName: keyof typeof Ionicons.glyphMap = 'ellipse';
+          let activeIcon = '';
+          let inactiveIcon = '';
 
           if (route.name === 'home') {
-            iconName = focused ? 'home' : 'home-outline';
+            activeIcon = 'home-variant';
+            inactiveIcon = 'home';
           } else if (route.name === 'order') {
-            iconName = focused ? 'receipt' : 'receipt-outline';
+            activeIcon = 'truck-delivery-outline'; // Delivery-focused minimalist icon
+            inactiveIcon = 'package'; // Simple box/package icon
           } else if (route.name === 'favorites') {
-            iconName = focused ? 'heart' : 'heart-outline';
+            activeIcon = 'star';
+            inactiveIcon = 'star';
           } else if (route.name === 'menu') {
-            iconName = focused ? 'grid' : 'grid-outline';
+            activeIcon = 'menu-open';
+            inactiveIcon = 'menu';
           }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return (
+            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+              <AnimatedTabIcon
+                focused={focused}
+                activeIcon={activeIcon}
+                inactiveIcon={inactiveIcon}
+                color={color}
+                size={24}
+              />
+            </View>
+          );
         },
       })}
     >

@@ -201,6 +201,7 @@ export default function OrderDetails() {
         try {
             const response = await axios.patch(`${API_URL}/api/client/deliveries/${deliveryId}`, {
                 status: 'cancelled',
+                
             });
 
             if (response.status === 200) {

@@ -5,7 +5,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -15,7 +14,7 @@ import {
 } from 'react-native';
 import { Menu, Provider } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import logo from '../../assets/images/logo.png';
+import SharedHeader from '../../components/SharedHeader'; // Adjust the import path as necessary
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -72,8 +71,8 @@ export default function CompletedOrdersScreen() {
 
   useEffect(() => {
     fetchCompletedOrders();
-    
-    
+
+
   }, []);
 
   const onRefresh = () => {
@@ -141,9 +140,9 @@ export default function CompletedOrdersScreen() {
                   </TouchableOpacity>
                 }
               >
-                <Menu.Item onPress={() => {}} title="Delete" />
-                <Menu.Item onPress={() => {}} title="Repeat" />
-                <Menu.Item onPress={() => {}} title="Return route" />
+                <Menu.Item onPress={() => { }} title="Delete" />
+                <Menu.Item onPress={() => { }} title="Repeat" />
+                <Menu.Item onPress={() => { }} title="Return route" />
               </Menu>
             </View>
           </View>
@@ -181,13 +180,7 @@ export default function CompletedOrdersScreen() {
   return (
     <Provider>
       <View style={styles.container}>
-        <View style={styles.titleWrapper}>
-          <Image
-                          source={logo}
-                          style={styles.logoImage}
-                        />
-          <Text style={styles.title}>PARFLY</Text>
-        </View>
+        <SharedHeader isOrdersTab />
 
         <ScrollView
           contentContainerStyle={{ paddingBottom: 24 }}
@@ -284,28 +277,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     height: '100%',
     width: '100%',
-  },
-  titleWrapper: {
     paddingTop: 60,
-    backgroundColor: '#fff',
-    marginHorizontal: -16,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderBottomWidth: 2,
-    borderBottomColor: '#CCCCCC',
-    display: 'flex',
-    flexDirection: 'row',
-    alignItems: 'center',
-    
-    
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FF6600',
-    paddingBottom: 4,
   },
   subtitle: {
     fontSize: 16,
