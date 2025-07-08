@@ -8,7 +8,7 @@ export default function RootLayout() {
           <Stack.Screen name="login" />
           <Stack.Screen name="register" />
           <Stack.Screen name="profile" />
-          <Stack.Screen name="pickup-location" />
+          <Stack.Screen name="location-selector" />
           <Stack.Screen name="order-details" />
           <Stack.Screen name="orders" />
           <Stack.Screen name="(tabs)" />

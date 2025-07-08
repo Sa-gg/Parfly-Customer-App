@@ -1,10 +1,12 @@
 import axios from 'axios';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  AppState,
+  AppStateStatus,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -14,25 +16,50 @@ import {
 } from 'react-native';
 import { Menu, Provider } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import SharedHeader from '../../components/SharedHeader'; // Adjust the import path as necessary
+import SharedHeader from '../../components/SharedHeader';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
-export default function CompletedOrdersScreen() {
+/**
+ * Orders Screen - Displays current and completed delivery orders
+ * Features real-time polling for order updates and pull-to-refresh
+ */
+export default function OrdersScreen() {
   const router = useRouter();
 
+  // Core state for orders data and UI
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [visibleMenu, setVisibleMenu] = useState<string | null>(null);
 
+  // Animation system for smooth order transitions
   const fadeAnimMap = useRef(new Map<string, Animated.Value>()).current;
+  
+  // Real-time polling system refs
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const lastFetchRef = useRef<number>(0);
+  const isActiveRef = useRef(true);
 
+  // Menu controls
   const openMenu = (id: string) => setVisibleMenu(id);
   const closeMenu = () => setVisibleMenu(null);
 
-  const fetchCompletedOrders = async () => {
+  /**
+   * Fetch orders with smart caching and duplicate prevention
+   * @param showLoader - Whether to show loading indicator
+   */
+  const fetchCompletedOrders = async (showLoader = false) => {
+    const now = Date.now();
+    
+    // Prevent duplicate API calls within 2 seconds
+    if (now - lastFetchRef.current < 2000 && !showLoader) return;
+    lastFetchRef.current = now;
+
     try {
+      if (showLoader) setLoading(true);
+      
       const storedUser = await SecureStore.getItemAsync('userData');
       if (!storedUser) return;
 
@@ -43,44 +70,105 @@ export default function CompletedOrdersScreen() {
         ['completed', 'cancelled', 'pending', 'accepted', 'in_transit'].includes(order.status)
       );
 
-      setOrders(filtered);
+      // Only update if data actually changed
+      const hasChanged = JSON.stringify(filtered) !== JSON.stringify(orders);
+      if (hasChanged) {
+        setOrders(filtered);
 
-      filtered.forEach((order: any) => {
-        if (!fadeAnimMap.has(order.delivery_id.toString())) {
-          fadeAnimMap.set(order.delivery_id.toString(), new Animated.Value(0));
-        }
-      });
-
-      filtered.forEach((order: any) => {
-        const anim = fadeAnimMap.get(order.delivery_id.toString());
-        if (anim) {
-          Animated.timing(anim, {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: true,
-          }).start();
-        }
-      });
+        // Setup animations for new orders
+        filtered.forEach((order: any) => {
+          const orderId = order.delivery_id.toString();
+          if (!fadeAnimMap.has(orderId)) {
+            fadeAnimMap.set(orderId, new Animated.Value(0));
+          }
+          
+          const anim = fadeAnimMap.get(orderId);
+          if (anim) {
+            Animated.timing(anim, {
+              toValue: 1,
+              duration: 500,
+              useNativeDriver: true,
+            }).start();
+          }
+        });
+      }
     } catch (error) {
-      console.error('Failed to fetch completed orders:', error);
+      console.error('Failed to fetch orders:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    fetchCompletedOrders();
-
-
+  // ============ REAL-TIME POLLING SYSTEM ============
+  
+  /** Start polling for order updates every 5 seconds */
+  const startPolling = useCallback(() => {
+    if (intervalRef.current) return; // Already polling
+    
+    intervalRef.current = setInterval(() => {
+      if (isActiveRef.current && appStateRef.current === 'active') {
+        fetchCompletedOrders(false);
+      }
+    }, 5000);
   }, []);
 
+  /** Stop the polling interval */
+  const stopPolling = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
+
+  /** Handle app background/foreground state changes */
+  const handleAppStateChange = useCallback((nextAppState: AppStateStatus) => {
+    appStateRef.current = nextAppState;
+    
+    if (nextAppState === 'active' && isActiveRef.current) {
+      fetchCompletedOrders(false);
+      startPolling();
+    } else {
+      stopPolling(); // Save battery when app is backgrounded
+    }
+  }, [startPolling, stopPolling]);
+
+  // ============ LIFECYCLE HOOKS ============
+  
+  /** Handle screen focus changes - start/stop polling when screen is focused/unfocused */
+  useFocusEffect(
+    useCallback(() => {
+      isActiveRef.current = true;
+      fetchCompletedOrders(true);
+      startPolling();
+
+      return () => {
+        isActiveRef.current = false;
+        stopPolling();
+      };
+    }, [startPolling, stopPolling])
+  );
+
+  /** Setup app state listener for background/foreground detection */
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    return () => {
+      subscription?.remove();
+      stopPolling();
+    };
+  }, [handleAppStateChange, stopPolling]);
+
+  // ============ UTILITY FUNCTIONS ============
+  
+  /** Manual refresh handler for pull-to-refresh */
   const onRefresh = () => {
     setRefreshing(true);
-    fetchCompletedOrders();
+    fetchCompletedOrders(false);
   };
 
-  function formatDate(dateString: string) {
+  /** Format date for display */
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const options: Intl.DateTimeFormatOptions = {
       day: '2-digit',
@@ -91,23 +179,40 @@ export default function CompletedOrdersScreen() {
       hour12: false,
     };
     return date.toLocaleString('en-GB', options);
-  }
+  };
 
-  const renderItem = ({ item }: { item: any }) => {
+  /** Get status message for current orders */
+  const getStatusMessage = (status: string) => {
+    switch (status) {
+      case 'pending': return "We're looking for drivers near you";
+      case 'accepted': return 'A driver has accepted your order';
+      case 'in_transit': return 'Your order is on the way!';
+      default: return '';
+    }
+  };
+
+  /** Navigate to order details */
+  const navigateToOrderDetails = (deliveryId: string) => {
+    router.push({
+      pathname: '/order-location',
+      params: { delivery_id: deliveryId },
+    });
+  };
+
+  // ============ RENDER FUNCTIONS ============
+  
+  /** Render completed order item with animations */
+  const renderCompletedOrderItem = ({ item }: { item: any }) => {
     const anim = fadeAnimMap.get(item.delivery_id.toString()) || new Animated.Value(1);
 
     return (
       <Animated.View key={item.delivery_id} style={[styles.card, { opacity: anim }]}>
         <TouchableOpacity
           activeOpacity={0.7}
-          onPress={() =>
-            router.push({
-              pathname: '/orders',
-              params: { delivery_id: item.delivery_id.toString() },
-            })
-          }
+          onPress={() => navigateToOrderDetails(item.delivery_id.toString())}
         >
           <View style={styles.rowBetween}>
+            {/* Addresses */}
             <View style={{ flex: 1, paddingRight: 8 }}>
               <View style={styles.row}>
                 <Icon name="record-circle-outline" size={16} color="#FF6600" />
@@ -125,6 +230,7 @@ export default function CompletedOrdersScreen() {
               )}
             </View>
 
+            {/* Menu */}
             <View>
               <Menu
                 visible={visibleMenu === item.delivery_id.toString()}
@@ -140,13 +246,14 @@ export default function CompletedOrdersScreen() {
                   </TouchableOpacity>
                 }
               >
-                <Menu.Item onPress={() => { }} title="Delete" />
-                <Menu.Item onPress={() => { }} title="Repeat" />
-                <Menu.Item onPress={() => { }} title="Return route" />
+                <Menu.Item onPress={() => {}} title="Delete" />
+                <Menu.Item onPress={() => {}} title="Repeat" />
+                <Menu.Item onPress={() => {}} title="Return route" />
               </Menu>
             </View>
           </View>
 
+          {/* Date and Status */}
           <View style={styles.rowBetween}>
             <Text style={styles.dateText}>
               {`${formatDate(item.created_at)} / ${item.status}`}
@@ -157,6 +264,8 @@ export default function CompletedOrdersScreen() {
     );
   };
 
+  // ============ DATA FILTERING ============
+  
   const currentOrders = orders.filter((o) =>
     ['pending', 'accepted', 'in_transit'].includes(o.status)
   );
@@ -164,19 +273,8 @@ export default function CompletedOrdersScreen() {
     ['completed', 'cancelled'].includes(o.status)
   );
 
-  const getStatusMessage = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return "We're looking for drivers near you";
-      case 'accepted':
-        return 'A driver has accepted your order';
-      case 'in_transit':
-        return 'Your order is on the way!';
-      default:
-        return '';
-    }
-  };
-
+  // ============ MAIN RENDER ============
+  
   return (
     <Provider>
       <View style={styles.container}>
@@ -192,23 +290,19 @@ export default function CompletedOrdersScreen() {
             <ActivityIndicator size="large" color="#FF6600" />
           ) : (
             <>
+              {/* Current Orders Section */}
               {currentOrders.length > 0 && (
                 <>
                   <Text style={styles.subtitle}>Current Orders</Text>
                   {currentOrders.map((item) => {
-                    const anim =
-                      fadeAnimMap.get(item.delivery_id.toString()) || new Animated.Value(1);
+                    const anim = fadeAnimMap.get(item.delivery_id.toString()) || new Animated.Value(1);
+                    
                     return (
                       <View key={item.delivery_id}>
-                        {/* Make entire currentHeading clickable */}
+                        {/* Status Header - Clickable */}
                         <TouchableOpacity
                           activeOpacity={0.7}
-                          onPress={() =>
-                            router.push({
-                              pathname: '/orders',
-                              params: { delivery_id: item.delivery_id.toString() },
-                            })
-                          }
+                          onPress={() => navigateToOrderDetails(item.delivery_id.toString())}
                         >
                           <View style={styles.currentHeading}>
                             <Text style={styles.currentHeadingText}>
@@ -217,23 +311,22 @@ export default function CompletedOrdersScreen() {
                           </View>
                         </TouchableOpacity>
 
+                        {/* Order Card */}
                         <Animated.View style={[styles.card, { opacity: anim }]}>
                           <TouchableOpacity
                             activeOpacity={0.7}
-                            onPress={() =>
-                              router.push({
-                                pathname: '/orders',
-                                params: { delivery_id: item.delivery_id.toString() },
-                              })
-                            }
+                            onPress={() => navigateToOrderDetails(item.delivery_id.toString())}
                           >
                             <View style={{ flex: 1 }}>
+                              {/* Pickup Address */}
                               <View style={styles.row}>
                                 <Icon name="record-circle-outline" size={16} color="#FF6600" />
                                 <Text style={styles.locationText} numberOfLines={1}>
                                   {item.pickup_address}
                                 </Text>
                               </View>
+                              
+                              {/* Dropoff Address */}
                               {item.dropoff_address && (
                                 <View style={styles.row}>
                                   <Icon name="map-marker" size={16} color="#FF6600" />
@@ -243,7 +336,7 @@ export default function CompletedOrdersScreen() {
                                 </View>
                               )}
 
-                              {/* Bottom row with 'In cash' on left and price on right */}
+                              {/* Price Row */}
                               <View style={styles.bottomRow}>
                                 <Text style={styles.inCashText}>In cash</Text>
                                 <Text style={styles.priceText}>
@@ -259,8 +352,9 @@ export default function CompletedOrdersScreen() {
                 </>
               )}
 
+              {/* Completed Orders Section */}
               <Text style={styles.subtitle}>Completed Orders</Text>
-              {completedOrders.map((item) => renderItem({ item }))}
+              {completedOrders.map((item) => renderCompletedOrderItem({ item }))}
             </>
           )}
         </ScrollView>
@@ -269,7 +363,10 @@ export default function CompletedOrdersScreen() {
   );
 }
 
+// ============ STYLES ============
+
 const styles = StyleSheet.create({
+  // Layout
   container: {
     flex: 1,
     backgroundColor: '#f9f9f9',
@@ -279,32 +376,14 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingTop: 60,
   },
+
+  // Typography
   subtitle: {
     fontSize: 16,
     marginBottom: 12,
     marginTop: 24,
     fontWeight: 'bold',
     color: '#333',
-  },
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderBottomWidth: 2,
-    borderBottomColor: '#CCCCCC',
-  },
-  rowBetween: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
   },
   locationText: {
     marginLeft: 6,
@@ -316,6 +395,28 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#777',
     marginTop: 15,
+  },
+  priceText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  inCashText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+  },
+
+  // Cards and Containers
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderBottomWidth: 2,
+    borderBottomColor: '#CCCCCC',
   },
   currentHeading: {
     backgroundColor: '#FF6600',
@@ -332,10 +433,17 @@ const styles = StyleSheet.create({
     textAlign: 'left',
     marginLeft: 10,
   },
-  priceText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
+
+  // Layout Helpers
+  rowBetween: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
   },
   bottomRow: {
     flexDirection: 'row',
@@ -344,16 +452,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     alignItems: 'center',
   },
-  inCashText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
-  },
-  logoImage: {
-    width: 40,
-    height: 40,
-    marginRight: 8,
-    borderRadius: 15,
 
-  },
 });

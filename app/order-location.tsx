@@ -5,7 +5,7 @@ import axios from 'axios';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Alert,
     Animated,
@@ -47,7 +47,12 @@ export default function OrderDetails() {
     const fetchRoute = async (deliveryData: any) => {
         try {
             const { pickup_lat, pickup_long, dropoff_lat, dropoff_long } = deliveryData;
-            const url = `https://api.tomtom.com/routing/1/calculateRoute/${pickup_lat},${pickup_long}:${dropoff_lat},${dropoff_long}/json?key=${TOMTOM_API_KEY}&instructionsType=text`;
+            const pickupLat = parseFloat(pickup_lat);
+            const pickupLng = parseFloat(pickup_long);
+            const dropoffLat = parseFloat(dropoff_lat);
+            const dropoffLng = parseFloat(dropoff_long);
+            
+            const url = `https://api.tomtom.com/routing/1/calculateRoute/${pickupLat},${pickupLng}:${dropoffLat},${dropoffLng}/json?key=${TOMTOM_API_KEY}&instructionsType=text`;
             const res = await axios.get(url);
             const points = res.data.routes[0].legs[0].points;
             const coords = points.map((point: any) => ({

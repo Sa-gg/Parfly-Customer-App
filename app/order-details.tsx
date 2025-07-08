@@ -1,6 +1,6 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -14,11 +14,15 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import OrderButton from '../components/delivery/OrderButton';
 import { useDeliveryStore } from '../store/useDeliveryStore';
+import { useLocationStore } from '../store/useLocationStore';
 
 const OrderDetailsScreen = () => {
 
   const { deliveryData, setDeliveryField } = useDeliveryStore();
+  const pickup = useLocationStore(state => state.pickup);
+  const dropoff = useLocationStore(state => state.dropoff);
 
   const [receiverName, setReceiverName] = useState(deliveryData.receiver_name || '');
   const [receiverPhone, setReceiverPhone] = useState(deliveryData.receiver_contact || '');
@@ -34,35 +38,66 @@ const OrderDetailsScreen = () => {
 
   const [additionalInfo, setAdditionalInfo] = useState(deliveryData.add_info || '');
 
-
   const router = useRouter();
 
+  // Calculate real-time pricing
+  const hasPickupAddress = !!pickup?.address;
+  const hasDropoffAddress = !!dropoff?.address;
+  
+  // Get current tip and compensation values
+  const currentTip = tipToggle ? selectedTip : 0;
+  const currentComp = compToggle ? selectedComp : 0;
+  
+  // Base delivery fee from the store (calculated in home screen)
+  // Remove tip and compensation from the base fee to avoid double counting
+  const originalDeliveryFee = deliveryData.delivery_fee || 0;
+  const originalTip = deliveryData.tip || 0;
+  const originalComp = deliveryData.additional_compensation || 0;
+  const baseFeeWithoutExtras = originalDeliveryFee - originalTip - originalComp;
+  
+  // Calculate new total price
+  const totalPrice = baseFeeWithoutExtras + currentTip + currentComp;
+  const formattedPrice = `₱${totalPrice.toFixed(2)}`;
+
+  // Update store in real-time when values change
+  useEffect(() => {
+    setDeliveryField('receiver_name', receiverName);
+  }, [receiverName, setDeliveryField]);
+
+  useEffect(() => {
+    setDeliveryField('receiver_contact', receiverPhone);
+  }, [receiverPhone, setDeliveryField]);
+
+  useEffect(() => {
+    if (codToggle && parcelAmount !== '') {
+      const parsedAmount = parseFloat(parcelAmount);
+      setDeliveryField('parcel_amount', isNaN(parsedAmount) ? 0 : parsedAmount);
+      setDeliveryField('payer', 'sender');
+    } else {
+      setDeliveryField('parcel_amount', 0);
+      setDeliveryField('payer', null);
+    }
+  }, [codToggle, parcelAmount, setDeliveryField]);
+
+  useEffect(() => {
+    setDeliveryField('additional_compensation', currentComp);
+  }, [currentComp, setDeliveryField]);
+
+  useEffect(() => {
+    setDeliveryField('tip', currentTip);
+  }, [currentTip, setDeliveryField]);
+
+  useEffect(() => {
+    setDeliveryField('add_info', additionalInfo);
+  }, [additionalInfo, setDeliveryField]);
 
   const handleDone = () => {
-  setDeliveryField('receiver_name', receiverName);
-  setDeliveryField('receiver_contact', receiverPhone);
-
-  // Handle parcel amount with fallback for NaN or invalid input
-  if (codToggle && parcelAmount !== '') {
-    const parsedAmount = parseFloat(parcelAmount);
-    setDeliveryField('parcel_amount', isNaN(parsedAmount) ? 0 : parsedAmount);
-    setDeliveryField('payer', 'sender'); // Adjust this as needed
-  } else {
-    setDeliveryField('parcel_amount', 0);
-    setDeliveryField('payer', null);
-  }
-
-  // Additional compensation with NaN fallback
-  setDeliveryField('additional_compensation', compToggle && !isNaN(selectedComp) ? selectedComp : 0);
-
-  // Tip with NaN fallback
-  setDeliveryField('tip', tipToggle && !isNaN(selectedTip) ? selectedTip : 0);
-
-  setDeliveryField('add_info', additionalInfo);
-
-  // ✅ Navigate to Home screen
-  router.push('/home');
-};
+    // Update the final delivery fee when user is done
+    setDeliveryField('delivery_fee', totalPrice);
+    // All other data is already updated in real-time via useEffect hooks
+    // Just navigate back to home
+    router.push('/home');
+  };
 
 
 
@@ -88,21 +123,28 @@ const OrderDetailsScreen = () => {
           <ScrollView contentContainerStyle={styles.container}>
             {/* Receiver Details */}
             <View style={styles.section}>
-              <Text style={styles.label}>Receiver Name</Text>
-              <TextInput
-                style={styles.inputField}
-                placeholder="Enter receiver name"
-                value={receiverName}
-                onChangeText={setReceiverName}
-              />
-              <Text style={[styles.label, { marginTop: 12 }]}>Contact Number</Text>
-              <TextInput
-                style={styles.inputField}
-                placeholder="Enter contact number"
-                keyboardType="phone-pad"
-                value={receiverPhone}
-                onChangeText={setReceiverPhone}
-              />
+              {/* Receiver Name */}
+              <View style={styles.inputContainer}>
+                <Ionicons name="person-outline" size={20} color="#888" />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Receiver name"
+                  value={receiverName}
+                  onChangeText={setReceiverName}
+                />
+              </View>
+              
+              {/* Contact Number */}
+              <View style={[styles.inputContainer, { marginTop: 8 }]}>
+                <Ionicons name="call-outline" size={20} color="#888" />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Contact number"
+                  keyboardType="phone-pad"
+                  value={receiverPhone}
+                  onChangeText={setReceiverPhone}
+                />
+              </View>
             </View>
 
             {/* Cash on Delivery */}
@@ -111,15 +153,17 @@ const OrderDetailsScreen = () => {
                 <Text style={styles.sectionTitle}>Cash on Delivery</Text>
                 <Switch value={codToggle} onValueChange={setCodToggle} trackColor={{ false: '#ccc', true: '#FF6600' }}
                   thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
-
                 />
               </View>
+              <Text style={styles.sectionSub}>
+                Collect payment from receiver upon delivery.
+              </Text>
               {codToggle && (
-                <View style={{ marginTop: 10 }}>
-                  <Text style={styles.label}>Parcel Amount (₱)</Text>
+                <View style={[styles.inputContainer, { marginTop: 8 }]}>
+                  <Ionicons name="cash-outline" size={20} color="#888" />
                   <TextInput
-                    style={styles.inputField}
-                    placeholder="Enter parcel amount"
+                    style={styles.textInput}
+                    placeholder="Parcel amount (₱)"
                     keyboardType="numeric"
                     value={parcelAmount}
                     onChangeText={setParcelAmount}
@@ -210,25 +254,35 @@ const OrderDetailsScreen = () => {
 
 
             {/* Additional Info */}
-            <View style={styles.additionalInfo}>
-              <MaterialIcons name="notes" size={22} color="#888" />
-              <TextInput
-                style={styles.textInput}
-                placeholder="Additional information"
-                value={additionalInfo}
-                onChangeText={setAdditionalInfo}
-              />
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Additional Information</Text>
+              <View style={[styles.inputContainer, { marginTop: 8 }]}>
+                <MaterialIcons name="notes" size={20} color="#888" />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Any special instructions or notes"
+                  value={additionalInfo}
+                  onChangeText={setAdditionalInfo}
+                  multiline
+                />
+              </View>
             </View>
           </ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
 
       {/* Bottom Bar */}
-      {/* Done Button */}
       <View style={styles.fixedBottomBar}>
-        <TouchableOpacity style={styles.doneButton} onPress={handleDone}>
-          <Text style={styles.doneText}>DONE</Text>
-        </TouchableOpacity>
+        <OrderButton
+          hasPickupAddress={hasPickupAddress}
+          hasDropoffAddress={hasDropoffAddress}
+          loadingPrice={false}
+          loading={false}
+          formattedPrice={formattedPrice}
+          fallbackPrice="₱0.00"
+          onPress={handleDone}
+          buttonText="DONE"
+        />
       </View>
 
     </View>
@@ -255,24 +309,28 @@ const styles = StyleSheet.create({
   },
   container: {
     padding: 16,
+    paddingBottom: 120, // Add more space for the fixed bottom button
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 20, // Reduced from 24 for tighter spacing
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 4, // Add small margin below header
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#333',
   },
   sectionSub: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#666',
-    marginTop: 4,
-    marginBottom: 12,
+    marginTop: 2,
+    marginBottom: 8, // Reduced margin
+    lineHeight: 16,
   },
   optionsRow: {
     flexDirection: 'row',
@@ -280,19 +338,23 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   amountOption: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    backgroundColor: '#F1F1F1',
-    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#F8F8F8',
+    borderRadius: 25,
     marginRight: 8,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
   },
   selectedOption: {
     backgroundColor: '#FF6600',
+    borderColor: '#FF6600',
   },
   amountText: {
     color: '#333',
-    fontWeight: '500',
+    fontWeight: '600',
+    fontSize: 14,
   },
   selectedText: {
     color: '#fff',
@@ -302,31 +364,21 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#333',
   },
-  inputField: {
-    borderWidth: 1,
-    borderColor: '#DDD',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    marginTop: 6,
-  },
-  additionalInfo: {
+  inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FAFAFA',
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: '#DDD',
+    borderColor: '#E5E5E5',
     borderRadius: 10,
-    marginBottom: 100
-
   },
   textInput: {
-    marginLeft: 10,
+    marginLeft: 8,
     flex: 1,
     fontSize: 14,
+    color: '#333',
   },
   bottomBar: {
     paddingHorizontal: 16,
@@ -343,22 +395,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: '#eee',
     zIndex: 10,
-  },
-
-  priceText: {
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  doneButton: {
-    backgroundColor: '#FF6600', // Updated from yellow to orange
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  doneText: {
-    color: '#fff', // Make text white for better contrast
-    fontWeight: '600',
-    fontSize: 16,
   },
 
 
