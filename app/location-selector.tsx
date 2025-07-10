@@ -1,7 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -19,56 +17,52 @@ import {
   View,
 } from 'react-native';
 import MapView, { Region } from 'react-native-maps';
+import { CachedLocation, locationCacheService } from '../services/LocationCacheService';
 import { useLocationStore } from '../store/useLocationStore';
 
 const { width, height } = Dimensions.get('window');
 
-// ============ DEFAULT REGION CONFIGURATION ============
+// ============ LOCATION UTILITIES ============
 
-/** Get the appropriate default region based on available location data */
-const getDefaultRegion = async (): Promise<Region> => {
-  try {
-    // First try to get last saved location
-    const lastKnownLocation = await getLastKnownLocationSync();
-    
-    if (lastKnownLocation) {
-      return {
-        latitude: lastKnownLocation.latitude,
-        longitude: lastKnownLocation.longitude,
-        latitudeDelta: 0.008,
-        longitudeDelta: 0.008,
-      };
-    }
-  } catch (error) {
-    console.warn('Failed to get last known location for default region');
+/** Convert CachedLocation to Region */
+const cachedLocationToRegion = (location: CachedLocation): Region => ({
+  latitude: location.latitude,
+  longitude: location.longitude,
+  latitudeDelta: 0.008,
+  longitudeDelta: 0.008,
+});
+
+/** Get the appropriate default region using hybrid approach */
+const getSmartInitialRegion = async (storedLocation: any): Promise<Region> => {
+  // 1. Use stored pickup/dropoff location if available
+  if (storedLocation?.lat && storedLocation?.lon) {
+    return {
+      latitude: storedLocation.lat,
+      longitude: storedLocation.lon,
+      latitudeDelta: 0.008,
+      longitudeDelta: 0.008,
+    };
   }
 
-  // Fallback to Bacolod City if no saved location
+  // 2. Try to get cached location from service
+  try {
+    const cachedLocation = await locationCacheService.getLocation();
+    if (cachedLocation) {
+      console.log(`Using cached location (${cachedLocation.source}, age: ${locationCacheService.getLocationAge()}min)`);
+      return cachedLocationToRegion(cachedLocation);
+    }
+  } catch (error) {
+    console.warn('Failed to get cached location:', error);
+  }
+
+  // 3. Fallback to Bacolod City
+  console.log('Using Bacolod fallback location');
   return {
     latitude: 10.6765,
     longitude: 122.9511,
     latitudeDelta: 0.008,
     longitudeDelta: 0.008,
   };
-};
-
-/** Synchronous version of getLastKnownLocation for use in getDefaultRegion */
-const getLastKnownLocationSync = async (): Promise<{ latitude: number; longitude: number } | null> => {
-  try {
-    const locationData = await SecureStore.getItemAsync('lastKnownLocation');
-    if (locationData) {
-      const parsed = JSON.parse(locationData);
-      // Only use location if it's less than 30 days old
-      const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
-      if (Date.now() - parsed.timestamp < thirtyDaysInMs) {
-        return { latitude: parsed.latitude, longitude: parsed.longitude };
-      }
-    }
-    return null;
-  } catch (error) {
-    console.error('Failed to retrieve last known location:', error);
-    return null;
-  }
 };
 
 export default function LocationSelectorScreen() {
@@ -79,25 +73,13 @@ export default function LocationSelectorScreen() {
   const { pickup, dropoff } = useLocationStore.getState();
   const storedLocation = mode === 'pickup' ? pickup : dropoff;
 
-  // Initialize with the actual stored location or Bacolod fallback
-  const getSmartInitialRegion = (): Region => {
-    if (storedLocation?.lat && storedLocation?.lon) {
-      return {
-        latitude: storedLocation.lat,
-        longitude: storedLocation.lon,
-        latitudeDelta: 0.008,
-        longitudeDelta: 0.008,
-      };
-    }
-
-    // Fallback to Bacolod (will be updated by useEffect if user location is available)
-    return {
-      latitude: 10.6765,
-      longitude: 122.9511,
-      latitudeDelta: 0.008,
-      longitudeDelta: 0.008,
-    };
-  };
+  // Initialize with Bacolod fallback (will be updated immediately by useEffect)
+  const getInitialRegion = (): Region => ({
+    latitude: 10.6765,
+    longitude: 122.9511,
+    latitudeDelta: 0.008,
+    longitudeDelta: 0.008,
+  });
 
   // State management
   const [search, setSearch] = useState('');
@@ -107,8 +89,8 @@ export default function LocationSelectorScreen() {
   const [mapVisible, setMapVisible] = useState(!!storedLocation?.address); // Hide map if no stored address
   const [showUI, setShowUI] = useState(false);
   const [fetchingAddress, setFetchingAddress] = useState(false);
-  const [initialRegion, setInitialRegion] = useState<Region>(getSmartInitialRegion());
-  const [currentCoords, setCurrentCoords] = useState<Region>(getSmartInitialRegion());
+  const [initialRegion, setInitialRegion] = useState<Region>(getInitialRegion());
+  const [currentCoords, setCurrentCoords] = useState<Region>(getInitialRegion());
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
 
@@ -119,153 +101,63 @@ export default function LocationSelectorScreen() {
   const isManualDrag = useRef(false); // Start as false - will be set to true on pan drag
   const skipSearchRef = useRef(false);
   const animationTime = useRef(500);
-  const lastKnownLocationCache = useRef<{ latitude: number; longitude: number } | null>(null);
   const isInitialLoad = useRef(true); // Track if this is the initial load
   const lastFetchTime = useRef(0); // Throttle address fetching
 
   const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
-  // ============ LOCATION STORAGE UTILITIES ============
-  
-  /** Save user's current location to secure storage for future use */
-  const saveLastKnownLocation = async (latitude: number, longitude: number) => {
-    try {
-      const locationData = JSON.stringify({ latitude, longitude, timestamp: Date.now() });
-      await SecureStore.setItemAsync('lastKnownLocation', locationData);
-      // Update cache
-      lastKnownLocationCache.current = { latitude, longitude };
-    } catch (error) {
-      console.error('Failed to save last known location:', error);
-    }
-  };
+  // ============ SMART INITIALIZATION WITH HYBRID APPROACH ============
 
-  /** Retrieve user's last known location from secure storage */
-  const getLastKnownLocation = async (): Promise<{ latitude: number; longitude: number } | null> => {
-    // Return cached value if available
-    if (lastKnownLocationCache.current) {
-      return lastKnownLocationCache.current;
-    }
+  // ============ SMART INITIALIZATION WITH HYBRID APPROACH ============
 
-    try {
-      const locationData = await SecureStore.getItemAsync('lastKnownLocation');
-      if (locationData) {
-        const parsed = JSON.parse(locationData);
-        // Only use location if it's less than 30 days old
-        const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
-        if (Date.now() - parsed.timestamp < thirtyDaysInMs) {
-          const location = { latitude: parsed.latitude, longitude: parsed.longitude };
-          lastKnownLocationCache.current = location; // Cache it
-          return location;
-        }
-      }
-      return null;
-    } catch (error) {
-      console.error('Failed to retrieve last known location:', error);
-      return null;
-    }
-  };
-
-  // ============ INITIALIZATION ============
-
-  // Initialize screen with stored location, GPS, or smart default region
+  // Initialize screen with smart location selection
   useEffect(() => {
     (async () => {
-      // If we already have stored location with address, we're done
+      console.log("============ Location Selector Initialization ============");
+      
+      // If we already have stored location with address, use it immediately
       if (storedLocation?.lat && storedLocation?.lon && storedLocation?.address) {
-        console.log('Using stored location with address, skipping GPS and fetch');
+        console.log('Using stored pickup/dropoff location, no need to fetch');
+        const storedRegion = {
+          latitude: storedLocation.lat,
+          longitude: storedLocation.lon,
+          latitudeDelta: 0.008,
+          longitudeDelta: 0.008,
+        };
+        setInitialRegion(storedRegion);
+        setCurrentCoords(storedRegion);
         mapReady.current = true;
-        setShowUI(true); // Show UI since we have address
-        setLoading(false); // Hide loading
-        setMapVisible(true); // Show map
+        setShowUI(true);
+        setLoading(false);
+        setMapVisible(true);
         return;
       }
 
-      // Show loading while getting location
+      // Show loading while getting smart location
       setLoading(true);
       setMapVisible(false);
 
-      // Only try to get GPS location if we don't have stored location
-      let userLocationRegion = null;
-      
-      try {
-        // Try to request permission first
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        
-        if (status === 'granted') {
-          // Try GPS location first
-          try {
-            const locationPromise = Location.getCurrentPositionAsync({
-              accuracy: Location.Accuracy.Balanced,
-            });
+      // Get smart initial region using hybrid approach
+      const smartRegion = await getSmartInitialRegion(storedLocation);
+      setInitialRegion(smartRegion);
+      setCurrentCoords(smartRegion);
 
-            const timeoutPromise = new Promise<never>((_, reject) => 
-              setTimeout(() => reject(new Error('GPS timeout')), 3000) // Shorter timeout for initial load
-            );
-
-            const location = await Promise.race([locationPromise, timeoutPromise]);
-            const { latitude, longitude } = location.coords;
-
-            // Save this location for future use
-            await saveLastKnownLocation(latitude, longitude);
-
-            userLocationRegion = {
-              latitude,
-              longitude,
-              latitudeDelta: 0.008,
-              longitudeDelta: 0.008,
-            };
-          } catch (gpsError) {
-            console.warn('GPS failed, trying network location');
-            
-            // Fallback to network-based location (works even when GPS is off)
-            try {
-              const networkLocation = await Location.getCurrentPositionAsync({
-                accuracy: Location.Accuracy.Lowest, // Use network/wifi for faster response
-              });
-              const { latitude, longitude } = networkLocation.coords;
-
-              await saveLastKnownLocation(latitude, longitude);
-
-              userLocationRegion = {
-                latitude,
-                longitude,
-                latitudeDelta: 0.008,
-                longitudeDelta: 0.008,
-              };
-            } catch (networkError) {
-              console.warn('Network location also failed');
+      // If location came from cache service, trigger background update if stale
+      if (!storedLocation?.lat && locationCacheService.isLocationStale()) {
+        console.log('Triggering background location update...');
+        locationCacheService.getFreshLocation().then((freshLocation) => {
+          if (freshLocation) {
+            const freshRegion = cachedLocationToRegion(freshLocation);
+            console.log('Got fresh location in background, updating map');
+            setCurrentCoords(freshRegion);
+            if (mapRef.current && mapReady.current) {
+              mapRef.current.animateToRegion(freshRegion, 1000);
             }
           }
-        }
-      } catch (error) {
-        console.warn('Location permission denied or failed');
-      }
-
-      // If we got GPS location, update to use it. Otherwise use last known or keep default
-      if (userLocationRegion) {
-        setInitialRegion(userLocationRegion);
-        setCurrentCoords(userLocationRegion);
-      } else {
-        // Try to get last known location as final fallback
-        const lastKnownLocation = await getLastKnownLocation();
-        
-        if (lastKnownLocation) {
-          const lastKnownRegion = {
-            latitude: lastKnownLocation.latitude,
-            longitude: lastKnownLocation.longitude,
-            latitudeDelta: 0.008,
-            longitudeDelta: 0.008,
-          };
-          setInitialRegion(lastKnownRegion);
-          setCurrentCoords(lastKnownRegion);
-        }
-        // If no last known location, keep the current Bacolod default
+        });
       }
 
       mapReady.current = true;
-      // Don't set isInitialLoad to false here - let the map animation effect handle it
-      
-      // Hide loading and show map once everything is ready
       setLoading(false);
       setMapVisible(true);
     })();
@@ -409,8 +301,8 @@ export default function LocationSelectorScreen() {
     Keyboard.dismiss();
     setSearchResults([]);
 
-    // Save selected location for future use
-    saveLastKnownLocation(item.position.lat, item.position.lon);
+    // Update location cache service with selected location
+    locationCacheService.getFreshLocation();
 
     if (mapRef.current) {
       isManualDrag.current = false;
@@ -472,8 +364,8 @@ export default function LocationSelectorScreen() {
       setCurrentCoords(region);
       fetchAddress(region.latitude, region.longitude);
       
-      // Save location when user manually selects a location
-      saveLastKnownLocation(region.latitude, region.longitude);
+      // Update location cache when user manually selects a location
+      locationCacheService.updateLocationIfStale();
       
       isManualDrag.current = false;
       setShowUI(true);
@@ -490,43 +382,23 @@ export default function LocationSelectorScreen() {
     setLoading(true); // Show loading while getting GPS location
     
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        alert('Location permission is required to use this feature.');
-        setLoading(false);
-        return;
-      }
-
-      // Add timeout to prevent hanging on GPS button
-      const locationPromise = Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('GPS timeout')), 8000)
-      );
-
-      const location = await Promise.race([locationPromise, timeoutPromise]);
-      const { latitude, longitude } = location.coords;
-
-      // Save this location for future use
-      await saveLastKnownLocation(latitude, longitude);
-
-      const region = {
-        latitude,
-        longitude,
-        latitudeDelta: 0.008,
-        longitudeDelta: 0.008,
-      };
-
-      setCurrentCoords(region);
-      if (mapRef.current) {
-        isManualDrag.current = false;
-        mapRef.current.animateToRegion(region, animationTime.current);
-      }
+      // Use location cache service to get fresh location
+      const freshLocation = await locationCacheService.getFreshLocation();
       
-      // Fetch address for the new location
-      fetchAddress(latitude, longitude);
+      if (freshLocation) {
+        const region = cachedLocationToRegion(freshLocation);
+        setCurrentCoords(region);
+        
+        if (mapRef.current) {
+          isManualDrag.current = false;
+          mapRef.current.animateToRegion(region, animationTime.current);
+        }
+        
+        // Fetch address for the new location
+        fetchAddress(freshLocation.latitude, freshLocation.longitude);
+      } else {
+        alert('Failed to get current location. Please try again.');
+      }
     } catch (error) {
       console.error('Failed to get current location:', error);
       alert('Failed to get current location. Please try again.');
