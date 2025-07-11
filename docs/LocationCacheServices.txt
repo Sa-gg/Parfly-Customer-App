@@ -1,0 +1,19 @@
+📱 App Launch
+    ↓
+🎯 AppState: 'active' → startLocationTracking()
+    ↓
+🛰️  GPS starts listening for location changes
+    ↓
+📍 User moves 50m → handleLocationUpdate() fires
+📍 2 minutes pass → handleLocationUpdate() fires  
+📍 Better GPS signal → handleLocationUpdate() fires
+    ↓
+🏠 User minimizes app → AppState: 'background'
+    ↓
+🛑 stopLocationTracking() → GPS listener removed
+    ↓
+💾 Last location stays cached in memory + SecureStore
+    ↓
+📱 User reopens app → AppState: 'active'
+    ↓
+🎯 startLocationTracking() → GPS listener starts again

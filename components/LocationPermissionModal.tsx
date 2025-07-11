@@ -1,13 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-    Dimensions,
-    Modal,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const { width } = Dimensions.get('window');
@@ -36,10 +35,7 @@ export default function LocationPermissionModal({
       visible={visible}
       transparent
       animationType="fade"
-      statusBarTranslucent
     >
-      <StatusBar backgroundColor="rgba(0,0,0,0.5)" barStyle="light-content" />
-      
       {/* Backdrop - Touchable to dismiss */}
       <TouchableOpacity 
         style={styles.backdrop}
