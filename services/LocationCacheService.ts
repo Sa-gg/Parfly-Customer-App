@@ -543,6 +543,21 @@ class LocationCacheService {
       console.log('🛑 LocationCacheService: Manual location updates stopped');
     }
   }
+
+  /**
+   * Clear cached location (for development/testing)
+   */
+  async clearCachedLocation(): Promise<void> {
+    try {
+      await SecureStore.deleteItemAsync('cachedLocation');
+      this.cachedLocation = null;
+      this.lastSavedLocation = null;
+      this.lastUpdateTime = 0;
+      console.log('🗑️ LocationCacheService: Cached location cleared');
+    } catch (error) {
+      console.error('💥 LocationCacheService: Failed to clear cached location:', error);
+    }
+  }
 }
 
 // Export singleton instance

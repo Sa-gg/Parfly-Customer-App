@@ -16,6 +16,7 @@ import { useRouteCalculation } from '../../hooks/useRouteCalculation';
 import { useDeliveryStore } from '../../store/useDeliveryStore';
 import { useLocationStore } from '../../store/useLocationStore';
 import { initDeliverySenderFromSecureStore } from '../../utils/initDeliverySender';
+import { locationCacheService } from '../../services/LocationCacheService';
 
 export default function HomeScreen() {
   // Initialize delivery sender data on mount
@@ -147,6 +148,24 @@ export default function HomeScreen() {
     setModalVisible(true);
   };
 
+  // DEV: Clear cached location
+  const handleClearCache = async () => {
+    try {
+      await locationCacheService.clearCachedLocation();
+      Toast.show({
+        type: 'success',
+        text1: 'Cache Cleared',
+        text2: 'Location cache has been cleared',
+      });
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to clear cache',
+      });
+    }
+  };
+
   return (
     <View style={styles.container}>
       {loading ? (
@@ -228,6 +247,18 @@ export default function HomeScreen() {
             fallbackPrice={selectedServiceDetails?.price || 'from ₱10'}
             onOrderPress={handlePlaceOrder}
           />
+
+          {/* DEV: Clear Cache Button */}
+          {__DEV__ && (
+            <TouchableOpacity
+              style={styles.devButton}
+              onPress={handleClearCache}
+            >
+              <Icon name="delete" size={20} color="#FF6600" />
+              <Text style={styles.devButtonText}>Clear Location Cache</Text>
+            </TouchableOpacity>
+          )}
+
           <CustomModal
             visible={modalVisible}
             message="Are you sure you want to place order?"
@@ -314,5 +345,23 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
     color: '#555',
+  },
+
+  // DEV: Development buttons
+  devButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFE5CC',
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#FF6600',
+  },
+  devButtonText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#FF6600',
+    fontWeight: '500',
   },
 });
