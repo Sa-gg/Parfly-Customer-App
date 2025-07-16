@@ -13,10 +13,10 @@ import { useFilledFieldCounter } from '../../hooks/useFilledFieldCounter';
 import { useLocationPermission } from '../../hooks/useLocationPermission';
 import { useOrderSubmission } from '../../hooks/useOrderSubmission';
 import { useRouteCalculation } from '../../hooks/useRouteCalculation';
+import { locationCacheService } from '../../services/LocationCacheService';
 import { useDeliveryStore } from '../../store/useDeliveryStore';
 import { useLocationStore } from '../../store/useLocationStore';
 import { initDeliverySenderFromSecureStore } from '../../utils/initDeliverySender';
-import { locationCacheService } from '../../services/LocationCacheService';
 
 export default function HomeScreen() {
   // Initialize delivery sender data on mount

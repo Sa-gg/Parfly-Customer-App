@@ -48,15 +48,13 @@ const getSmartInitialRegion = async (storedLocation: any): Promise<Region> => {
   try {
     const cachedLocation = await locationCacheService.getLocation();
     if (cachedLocation) {
-      console.log(`Using cached location (${cachedLocation.source}, age: ${locationCacheService.getLocationAge()}min)`);
       return cachedLocationToRegion(cachedLocation);
     }
   } catch (error) {
-    console.warn('Failed to get cached location:', error);
+    // Failed to get cached location, fall back to default
   }
 
   // 3. Fallback to Bacolod City
-  console.log('Using Bacolod fallback location');
   return {
     latitude: 10.6765,
     longitude: 122.9511,
@@ -113,11 +111,8 @@ export default function LocationSelectorScreen() {
   // Initialize screen with smart location selection
   useEffect(() => {
     (async () => {
-      console.log("============ Location Selector Initialization ============");
-      
       // If we already have stored location with address, use it immediately
       if (storedLocation?.lat && storedLocation?.lon && storedLocation?.address) {
-        console.log('Using stored pickup/dropoff location, no need to fetch');
         const storedRegion = {
           latitude: storedLocation.lat,
           longitude: storedLocation.lon,
@@ -144,11 +139,9 @@ export default function LocationSelectorScreen() {
 
       // If location came from cache service, trigger background update if stale
       if (!storedLocation?.lat && locationCacheService.isLocationStale()) {
-        console.log('Triggering background location update...');
         locationCacheService.getFreshLocation().then((freshLocation) => {
           if (freshLocation) {
             const freshRegion = cachedLocationToRegion(freshLocation);
-            console.log('Got fresh location in background, updating map');
             setCurrentCoords(freshRegion);
             if (mapRef.current && mapReady.current) {
               mapRef.current.animateToRegion(freshRegion, 1000);
@@ -167,7 +160,6 @@ export default function LocationSelectorScreen() {
   useEffect(() => {
     const animateToCorrectRegion = () => {
       if (mapRef.current && mapReady.current && isInitialLoad.current && mapVisible) {
-        console.log('Animating map to correct region:', currentCoords);
         mapRef.current.animateToRegion(currentCoords, 0); // Immediate animation (0ms)
         isInitialLoad.current = false; // Prevent this from running again
         
@@ -188,12 +180,9 @@ export default function LocationSelectorScreen() {
 
   // Fetch address from coordinates using reverse geocoding
   const fetchAddress = async (lat: number, lon: number) => {
-    console.log('fetchAddress called with:', lat, lon);
-    
     // Throttle to prevent excessive API calls
     const now = Date.now();
     if (now - lastFetchTime.current < 1000) { // 1 second throttle
-      console.log('Throttling fetchAddress call');
       return;
     }
     lastFetchTime.current = now;
@@ -223,7 +212,6 @@ export default function LocationSelectorScreen() {
         newAddress = data.address?.freeformAddress || data.freeformAddress;
       }
 
-      console.log('Fetched address:', newAddress);
       setAddress(newAddress);
       setCity(data.address?.municipality);
       skipSearchRef.current = true;
@@ -274,7 +262,6 @@ export default function LocationSelectorScreen() {
         const data = await res.json();
         setSearchResults(data.results || []);
       } catch (err) {
-        console.error('Search failed:', err);
         setSearchResults([]);
       } finally {
         setSearchLoading(false);
@@ -337,30 +324,24 @@ export default function LocationSelectorScreen() {
 
   // Handle when user stops moving the map
   const onRegionChangeComplete = (region: Region) => {
-    console.log('onRegionChangeComplete called - mapReady:', mapReady.current, 'isInitialLoad:', isInitialLoad.current, 'isZooming:', isZooming.current, 'isManualDrag:', isManualDrag.current);
-    
     if (!mapReady.current) {
-      console.log('Map not ready, ignoring region change');
       return; // Don't retry if map not ready, just ignore
     }
 
     // Skip address fetching if this is a zoom operation
     if (isZooming.current) {
-      console.log('Zooming operation, skipping address fetch');
       setCurrentCoords(region);
       return;
     }
 
     // Skip address fetching if this is during initial load
     if (isInitialLoad.current) {
-      console.log('Initial load, skipping address fetch');
       setCurrentCoords(region);
       return;
     }
 
     // Only fetch address if this is a manual drag by the user
     if (isManualDrag.current) {
-      console.log('Manual drag detected, fetching address');
       setCurrentCoords(region);
       fetchAddress(region.latitude, region.longitude);
       
@@ -370,7 +351,6 @@ export default function LocationSelectorScreen() {
       isManualDrag.current = false;
       setShowUI(true);
     } else {
-      console.log('Not a manual drag, just updating coordinates');
       // Just update coordinates without fetching address
       setCurrentCoords(region);
     }
@@ -400,7 +380,6 @@ export default function LocationSelectorScreen() {
         alert('Failed to get current location. Please try again.');
       }
     } catch (error) {
-      console.error('Failed to get current location:', error);
       alert('Failed to get current location. Please try again.');
     } finally {
       setLoading(false);
