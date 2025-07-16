@@ -15,6 +15,7 @@ import {
   View
 } from 'react-native';
 import { Menu, Provider } from 'react-native-paper';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import SharedHeader from '../../components/SharedHeader';
 
@@ -26,6 +27,7 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
  */
 export default function OrdersScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   // Core state for orders data and UI
   const [orders, setOrders] = useState<any[]>([]);
@@ -276,8 +278,9 @@ export default function OrdersScreen() {
   // ============ MAIN RENDER ============
   
   return (
-    <Provider>
-      <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <Provider>
+        <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <SharedHeader isOrdersTab />
 
         <ScrollView
@@ -360,12 +363,18 @@ export default function OrdersScreen() {
         </ScrollView>
       </View>
     </Provider>
+    </SafeAreaView>
   );
 }
 
 // ============ STYLES ============
 
 const styles = StyleSheet.create({
+  // Safe Area
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f9f9f9',
+  },
   // Layout
   container: {
     flex: 1,
@@ -374,7 +383,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     height: '100%',
     width: '100%',
-    paddingTop: 60,
+    paddingTop: 20,
   },
 
   // Typography

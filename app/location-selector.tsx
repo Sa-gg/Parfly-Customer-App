@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,6 +18,7 @@ import {
   View,
 } from 'react-native';
 import MapView, { Region } from 'react-native-maps';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CachedLocation, locationCacheService } from '../services/LocationCacheService';
 import { useLocationStore } from '../store/useLocationStore';
 
@@ -66,6 +68,7 @@ const getSmartInitialRegion = async (storedLocation: any): Promise<Region> => {
 export default function LocationSelectorScreen() {
   const router = useRouter();
   const { mode } = useLocalSearchParams(); // 'pickup' or 'dropoff'
+  const insets = useSafeAreaInsets();
 
   // Get stored location immediately and synchronously
   const { pickup, dropoff } = useLocationStore.getState();
@@ -478,13 +481,15 @@ export default function LocationSelectorScreen() {
 
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.container}
-      >
+    <SafeAreaView style={styles.safeArea} edges={[]}>
+      <StatusBar style="dark" translucent backgroundColor="transparent" />
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.container}
+        >
         {/* Search bar - Always show and always editable */}
-        <View style={styles.searchBarContainer}>
+        <View style={[styles.searchBarContainer, { top: insets.top + 10 }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={28} color="black" />
           </TouchableOpacity>
@@ -507,7 +512,7 @@ export default function LocationSelectorScreen() {
 
         {/* Search results dropdown */}
         {searchResults.length > 0 && (
-          <View style={styles.searchResultsContainer}>
+          <View style={[styles.searchResultsContainer, { top: insets.top + 80 }]}>
             {searchLoading && <ActivityIndicator size="small" color="#FF6600" />}
             <FlatList
               data={searchResults}
@@ -592,7 +597,8 @@ export default function LocationSelectorScreen() {
         {/* Bottom UI Container */}
         {showUI && !fetchingAddress && (
           <View style={styles.bottomContainer}>
-            <View style={styles.pickupInfo}>
+            <View style={[styles.bottomContent, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+              <View style={styles.pickupInfo}>
               <Text style={styles.pickupLabel}>
                 {mode == 'pickup' ? 'Pick-up point' : 'Drop-off point'}
               </Text>
@@ -627,10 +633,12 @@ export default function LocationSelectorScreen() {
             >
               <Text style={styles.doneButtonText}>Done</Text>
             </TouchableOpacity>
+            </View>
           </View>
         )}
       </KeyboardAvoidingView>
     </TouchableWithoutFeedback>
+    </SafeAreaView>
   );
 }
 
@@ -640,6 +648,10 @@ const SPACING = 10;
 const HALF_BUTTON = BUTTON_SIZE / 2;
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
   container: {
     flex: 1,
   },
@@ -662,7 +674,7 @@ const styles = StyleSheet.create({
   // Search UI Components
   searchBarContainer: {
     position: 'absolute',
-    top: 50,
+    top: 10,
     left: 16,
     right: 16,
     zIndex: 30,
@@ -685,7 +697,7 @@ const styles = StyleSheet.create({
   },
   searchResultsContainer: {
     position: 'absolute',
-    top: 120,
+    top: 80,
     left: 16,
     right: 16,
     maxHeight: '100%',
@@ -771,17 +783,18 @@ const styles = StyleSheet.create({
   bottomContainer: {
     position: 'absolute',
     bottom: 0,
-    paddingBottom: 60,
     backgroundColor: 'white',
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
+    zIndex: 20,
+    width: '100%',
+    elevation: 10,
+  },
+  bottomContent: {
     padding: 16,
     flexDirection: 'column',
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
-    zIndex: 20,
-    width: '100%',
-    elevation: 10,
   },
   pickupInfo: {
     width: '100%',

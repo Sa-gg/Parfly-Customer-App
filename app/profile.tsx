@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomModal from '../components/CustomModal'; // Adjust the import path as necessary
 
 export default function ProfilePage() {
@@ -84,7 +85,8 @@ export default function ProfilePage() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
@@ -177,12 +179,17 @@ export default function ProfilePage() {
         onConfirm={handleLogoutConfirm}
       />
     </ScrollView>
+    </SafeAreaView>
   );
 }
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   container: {
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: 20,
     paddingBottom: 40,
     backgroundColor: '#fff',
     flexGrow: 1,

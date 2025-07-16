@@ -2,6 +2,7 @@ import { Entypo } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import CustomModal from '../../components/CustomModal';
@@ -19,6 +20,9 @@ import { useLocationStore } from '../../store/useLocationStore';
 import { initDeliverySenderFromSecureStore } from '../../utils/initDeliverySender';
 
 export default function HomeScreen() {
+  // Safe area insets
+  const insets = useSafeAreaInsets();
+
   // Initialize delivery sender data on mount
   React.useEffect(() => {
     initDeliverySenderFromSecureStore();
@@ -167,7 +171,8 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 16) }]}>
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#FF6600" />
@@ -284,16 +289,22 @@ export default function HomeScreen() {
 
       <Toast />
     </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  // Safe Area
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
   // Main Container
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingTop: 60,
+    paddingTop: 20,
     position: 'relative',
     height: '100%',
     width: '100%',

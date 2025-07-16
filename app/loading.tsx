@@ -2,7 +2,8 @@
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoadingScreen() {
   const router = useRouter();
@@ -23,10 +24,10 @@ export default function LoadingScreen() {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Text style={styles.logo}>Parlfy</Text>
       <ActivityIndicator size="large" color="#FF6600" />
-    </View>
+    </SafeAreaView>
   );
 }
 

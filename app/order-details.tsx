@@ -14,11 +14,13 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import OrderButton from '../components/delivery/OrderButton';
 import { useDeliveryStore } from '../store/useDeliveryStore';
 import { useLocationStore } from '../store/useLocationStore';
 
 const OrderDetailsScreen = () => {
+  const insets = useSafeAreaInsets();
 
   const { deliveryData, setDeliveryField } = useDeliveryStore();
   const pickup = useLocationStore(state => state.pickup);
@@ -35,18 +37,23 @@ const OrderDetailsScreen = () => {
 
   const [tipToggle, setTipToggle] = useState(deliveryData.tip > 0);
   const [selectedTip, setSelectedTip] = useState(deliveryData.tip || 10);
+  const [priceLoading, setPriceLoading] = useState(false);
 
   const [additionalInfo, setAdditionalInfo] = useState(deliveryData.add_info || '');
 
   const router = useRouter();
+
+  // Debounced price calculation to improve UI responsiveness
+  const [debouncedTip, setDebouncedTip] = useState(selectedTip);
+  const [debouncedComp, setDebouncedComp] = useState(selectedComp);
 
   // Calculate real-time pricing
   const hasPickupAddress = !!pickup?.address;
   const hasDropoffAddress = !!dropoff?.address;
   
   // Get current tip and compensation values
-  const currentTip = tipToggle ? selectedTip : 0;
-  const currentComp = compToggle ? selectedComp : 0;
+  const currentTip = tipToggle ? debouncedTip : 0;
+  const currentComp = compToggle ? debouncedComp : 0;
   
   // Base delivery fee from the store (calculated in home screen)
   // Remove tip and compensation from the base fee to avoid double counting
@@ -79,6 +86,27 @@ const OrderDetailsScreen = () => {
     }
   }, [codToggle, parcelAmount, setDeliveryField]);
 
+  // Debounced updates for tip and compensation
+  useEffect(() => {
+    setPriceLoading(true);
+    const timer = setTimeout(() => {
+      setDebouncedTip(selectedTip);
+      setPriceLoading(false);
+    }, 150); // 150ms delay for smooth UI
+
+    return () => clearTimeout(timer);
+  }, [selectedTip]);
+
+  useEffect(() => {
+    setPriceLoading(true);
+    const timer = setTimeout(() => {
+      setDebouncedComp(selectedComp);
+      setPriceLoading(false);
+    }, 150); // 150ms delay for smooth UI
+
+    return () => clearTimeout(timer);
+  }, [selectedComp]);
+
   useEffect(() => {
     setDeliveryField('additional_compensation', currentComp);
   }, [currentComp, setDeliveryField]);
@@ -102,10 +130,10 @@ const OrderDetailsScreen = () => {
 
 
   return (
-
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+      <View style={styles.screen}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
@@ -272,11 +300,11 @@ const OrderDetailsScreen = () => {
       </KeyboardAvoidingView>
 
       {/* Bottom Bar */}
-      <View style={styles.fixedBottomBar}>
+      <View style={[styles.fixedBottomBar, { bottom: Math.max(insets.bottom, 16) }]}>
         <OrderButton
           hasPickupAddress={hasPickupAddress}
           hasDropoffAddress={hasDropoffAddress}
-          loadingPrice={false}
+          loadingPrice={priceLoading}
           loading={false}
           formattedPrice={formattedPrice}
           fallbackPrice="₱0.00"
@@ -286,21 +314,26 @@ const OrderDetailsScreen = () => {
       </View>
 
     </View>
-
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   screen: { flex: 1, backgroundColor: '#fff' },
   header: {
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F4F4F4',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingTop: 60,
-
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
   },
   headerTitle: {
     fontSize: 18,
@@ -388,7 +421,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 40,
     backgroundColor: '#fff',
     paddingHorizontal: 16,
     paddingVertical: 12,

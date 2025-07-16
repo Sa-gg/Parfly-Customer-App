@@ -12,6 +12,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
 export default function LoginScreen() {
@@ -121,7 +122,8 @@ export default function LoginScreen() {
 
 
     return (
-        <ScrollView contentContainerStyle={styles.container}>
+        <SafeAreaView style={styles.safeArea}>
+            <ScrollView contentContainerStyle={styles.container}>
             {loading ? (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#FF6600" />
@@ -198,12 +200,17 @@ export default function LoginScreen() {
                 </>
             )}
         </ScrollView>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
+    safeArea: {
+        flex: 1,
+        backgroundColor: '#fff',
+    },
     container: {
-        paddingVertical: 60,
+        paddingVertical: 20,
         paddingHorizontal: 20,
         backgroundColor: '#fff',
         flexGrow: 1,

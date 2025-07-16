@@ -12,13 +12,13 @@ import {
     Dimensions,
     PanResponder,
     Pressable,
-    SafeAreaView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { default as Icon } from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useDeliveryStore } from '../store/useDeliveryStore';
 import { useLocationStore } from '../store/useLocationStore';

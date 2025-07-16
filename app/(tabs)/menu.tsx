@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function MenuScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [user, setUser] = useState<{ full_name?: string; email?: string; phone?: string }>({});
 
   const loadUser = async () => {
@@ -26,7 +28,8 @@ export default function MenuScreen() {
   const displayName = user.full_name?.trim() ? user.full_name : user.email;
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 16) }]}>
       <Text style={styles.title}>Menu</Text>
 
       {/* Profile Section */}
@@ -73,15 +76,20 @@ export default function MenuScreen() {
         </TouchableOpacity>
       </View>
     </View>
+    </SafeAreaView>
   );
 }
 
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   container: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 60,
+    paddingTop: 20,
     backgroundColor: '#fff',
   },
   title: {

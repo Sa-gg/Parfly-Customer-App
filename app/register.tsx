@@ -12,6 +12,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomModal from '../components/CustomModal'; // Adjust the import path as necessary
 
 
@@ -160,7 +161,8 @@ export default function RegisterScreen() {
 
 
     return (
-        <ScrollView contentContainerStyle={styles.container}>
+        <SafeAreaView style={styles.safeArea}>
+            <ScrollView contentContainerStyle={styles.container}>
             {loading ? (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#FF6600" />
@@ -303,13 +305,17 @@ export default function RegisterScreen() {
                 </>
             )}
         </ScrollView>
-
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
+    safeArea: {
+        flex: 1,
+        backgroundColor: '#fff',
+    },
     container: {
-        paddingVertical: 60,
+        paddingVertical: 20,
         paddingHorizontal: 20,
         backgroundColor: '#fff',
         flexGrow: 1,
